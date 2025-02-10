@@ -2,7 +2,7 @@ using UnityEngine;
 
 public class TileMover : MonoBehaviour
 {
-    private static Transform emptyTile; // Reference to the empty tile
+    private static Transform emptyTile;
     private Vector2 targetPosition;
     private float moveSpeed = 5f;
     private bool isMoving = false;
@@ -11,9 +11,9 @@ public class TileMover : MonoBehaviour
     {
         if (emptyTile == null)
         {
-            emptyTile = GameObject.FindWithTag("EmptyTile").transform; // Find the empty tile by tag
+            emptyTile = GameObject.FindWithTag("EmptyTile").transform;
         }
-        targetPosition = transform.position; // Set initial position
+        targetPosition = transform.position;
     }
 
     void Update()
@@ -24,13 +24,14 @@ public class TileMover : MonoBehaviour
             if ((Vector2)transform.position == targetPosition)
             {
                 isMoving = false;
+                SnapToGrid();
             }
         }
     }
 
     void OnMouseDown()
     {
-        if (isMoving) return; // Prevent multiple moves
+        if (isMoving) return;
 
         if (IsAdjacentToEmptyTile())
         {
@@ -42,8 +43,10 @@ public class TileMover : MonoBehaviour
     {
         float distanceX = Mathf.Abs(transform.position.x - emptyTile.position.x);
         float distanceY = Mathf.Abs(transform.position.y - emptyTile.position.y);
+        float tolerance = 0.05f;
 
-        return (distanceX == 1 && distanceY == 0) || (distanceX == 0 && distanceY == 1);
+        return (Mathf.Abs(distanceX - 1) < tolerance && distanceY < tolerance) ||
+               (Mathf.Abs(distanceY - 1) < tolerance && distanceX < tolerance);
     }
 
     void SwapWithEmptyTile()
@@ -52,5 +55,21 @@ public class TileMover : MonoBehaviour
         emptyTile.position = transform.position;
         targetPosition = emptyTilePosition;
         isMoving = true;
+
+        // Ensure precise alignment after moving
+        Invoke(nameof(SnapToGrid), 0.05f);
+
+        // Fix collider issues
+        GetComponent<Collider2D>().enabled = false;
+        GetComponent<Collider2D>().enabled = true;
+    }
+
+    void SnapToGrid()
+    {
+        transform.position = new Vector3(
+            Mathf.Round(transform.position.x * 100f) / 100f,
+            Mathf.Round(transform.position.y * 100f) / 100f,
+            transform.position.z
+        );
     }
 }

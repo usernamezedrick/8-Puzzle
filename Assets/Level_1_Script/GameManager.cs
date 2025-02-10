@@ -1,4 +1,5 @@
 ﻿using UnityEngine;
+using UnityEngine.SceneManagement;
 using System.Collections.Generic;
 
 public class GameManager : MonoBehaviour
@@ -9,8 +10,10 @@ public class GameManager : MonoBehaviour
     [Header("Empty Tile")]
     public Transform emptyTile;
 
-    [Header("Win UI")]
+    [Header("UI Elements")]
     public GameObject winText;
+    public GameObject tryAgainButton; // Shows only on win
+    public GameObject exitButton; // Always visible
 
     [Header("Grid Settings")]
     public float tileSize = 1.0f;
@@ -21,6 +24,8 @@ public class GameManager : MonoBehaviour
     {
         ShuffleTiles();
         winText.SetActive(false);
+        tryAgainButton.SetActive(false);
+        exitButton.SetActive(true); // Main Menu button always visible
     }
 
     void Update()
@@ -61,12 +66,7 @@ public class GameManager : MonoBehaviour
             }
         }
 
-        if (Vector3.Distance(emptyTile.position, GetEmptyCorrectPosition()) > tolerance)
-        {
-            return false;
-        }
-
-        return true;
+        return Vector3.Distance(emptyTile.position, GetEmptyCorrectPosition()) <= tolerance;
     }
 
     Vector3 GetCorrectPosition(int tileNumber)
@@ -86,6 +86,7 @@ public class GameManager : MonoBehaviour
     void ShowWinMessage()
     {
         winText.SetActive(true);
+        tryAgainButton.SetActive(true); // Show only on win
         Debug.Log("You won the game!");
         Time.timeScale = 0;
         gameWon = true;
@@ -99,10 +100,21 @@ public class GameManager : MonoBehaviour
         }
 
         emptyTile.position = GetEmptyCorrectPosition();
-
         Debug.Log("Instant win applied. Empty tile at: " + emptyTile.position);
 
         ShowWinMessage();
+    }
+
+    public void RestartGame()
+    {
+        Time.timeScale = 1; // Resume game speed
+        SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+    }
+
+    public void ExitToMainMenu()
+    {
+        Time.timeScale = 1; // Resume game speed
+        SceneManager.LoadScene("Main_Menu"); // Change to your actual Main Menu scene name
     }
 
     bool IsInputDetected(out Vector3 position)
