@@ -3888,7 +3888,7 @@ MonoBehaviour:
   emptyTile: {fileID: 979878526}
   winText: {fileID: 1606957491}
   tryAgainButton: {fileID: 1150218903}
-  mainMenuButton: {fileID: 1608019891}
+  exitButton: {fileID: 1608019891}
   tileSize: 1
 --- !u!114 &911062553
 MonoBehaviour:
@@ -3929,6 +3929,7 @@ GameObject:
   - component: {fileID: 979878526}
   - component: {fileID: 979878528}
   - component: {fileID: 979878527}
+  - component: {fileID: 979878529}
   m_Layer: 0
   m_Name: EmptyTile
   m_TagString: EmptyTile
@@ -4048,6 +4049,18 @@ SpriteRenderer:
   m_WasSpriteAssigned: 1
   m_MaskInteraction: 0
   m_SpriteSortPoint: 0
+--- !u!114 &979878529
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 979878525}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4e6bac13def029b4fa9be97482e7c61c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &1044289082
 GameObject:
   m_ObjectHideFlags: 0
@@ -4805,7 +4818,7 @@ MonoBehaviour:
       m_Calls:
       - m_Target: {fileID: 911062552}
         m_TargetAssemblyTypeName: PuzzleManager, Assembly-CSharp
-        m_MethodName: TryAgain
+        m_MethodName: RestartGame
         m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}
@@ -5846,7 +5859,7 @@ MonoBehaviour:
       m_Calls:
       - m_Target: {fileID: 911062552}
         m_TargetAssemblyTypeName: PuzzleManager, Assembly-CSharp
-        m_MethodName: GoToMainMenu
+        m_MethodName: ExitToMainMenu
         m_Mode: 1
         m_Arguments:
           m_ObjectArgument: {fileID: 0}

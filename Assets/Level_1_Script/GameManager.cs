@@ -1,5 +1,6 @@
 ﻿using UnityEngine;
 using UnityEngine.SceneManagement;
+using System.Collections;
 using System.Collections.Generic;
 
 public class GameManager : MonoBehaviour
@@ -12,70 +13,106 @@ public class GameManager : MonoBehaviour
 
     [Header("UI Elements")]
     public GameObject winText;
-    public GameObject tryAgainButton; // Shows only on win
-    public GameObject exitButton; // Always visible
+    public GameObject tryAgainButton;
+    public GameObject exitButton;
 
     [Header("Grid Settings")]
     public float tileSize = 1.0f;
-
     private bool gameWon = false;
+    private bool isShuffling = true; // Prevents player input during shuffle
 
     void Start()
     {
-        ShuffleTiles();
         winText.SetActive(false);
         tryAgainButton.SetActive(false);
-        exitButton.SetActive(true); // Main Menu button always visible
+        exitButton.SetActive(true);
+        StartCoroutine(ShuffleTilesAnimated(5f)); // 5 seconds shuffles may be enough?
     }
 
     void Update()
     {
-        if (!gameWon && CheckWinCondition())
+        if (!gameWon && !isShuffling && CheckWinCondition())
         {
             ShowWinMessage();
         }
 
-        if (!gameWon && IsInputDetected(out Vector3 touchPosition))
+        if (!gameWon && !isShuffling && IsInputDetected(out Vector3 touchPosition))
         {
             Vector3 worldPosition = Camera.main.ScreenToWorldPoint(new Vector3(touchPosition.x, touchPosition.y, Camera.main.nearClipPlane));
             HandleTileMove(worldPosition);
         }
     }
 
-    void ShuffleTiles()
+    IEnumerator ShuffleTilesAnimated(float shuffleDuration)
     {
-        for (int i = 0; i < numberedTiles.Count; i++)
+        isShuffling = true;
+
+        int moveCount = Random.Range(50, 90); // hehe I randomize go brr
+        float delay = shuffleDuration / moveCount;
+
+        Transform lastMovedTile = null;
+
+        for (int i = 0; i < moveCount; i++)
         {
-            int randomIndex = Random.Range(0, numberedTiles.Count);
-            Vector3 temp = numberedTiles[i].position;
-            numberedTiles[i].position = numberedTiles[randomIndex].position;
-            numberedTiles[randomIndex].position = temp;
+            List<Transform> adjacentTiles = GetMovableTiles();
+
+            // Avoid moving the same tile twice in a row like fr
+            if (adjacentTiles.Count > 1 && lastMovedTile != null)
+            {
+                adjacentTiles.Remove(lastMovedTile);
+            }
+
+            Transform randomTile = adjacentTiles[Random.Range(0, adjacentTiles.Count)];
+            SwapTiles(randomTile, emptyTile);
+            lastMovedTile = randomTile;
+
+            yield return new WaitForSeconds(delay);
         }
+
+        isShuffling = false;
+    }
+
+
+    void MakeRandomMove()
+    {
+        List<Transform> adjacentTiles = GetMovableTiles();
+        if (adjacentTiles.Count > 0)
+        {
+            Transform randomTile = adjacentTiles[Random.Range(0, adjacentTiles.Count)];
+            SwapTiles(randomTile, emptyTile);
+        }
+    }
+
+    List<Transform> GetMovableTiles()
+    {
+        List<Transform> movableTiles = new List<Transform>();
+        foreach (Transform tile in numberedTiles)
+        {
+            if (Vector3.Distance(tile.position, emptyTile.position) == tileSize)
+            {
+                movableTiles.Add(tile);
+            }
+        }
+        return movableTiles;
     }
 
     bool CheckWinCondition()
     {
-        float tolerance = 0.01f;
-
         for (int i = 0; i < numberedTiles.Count; i++)
         {
-            Vector3 correctPos = GetCorrectPosition(i + 1);
-            if (Vector3.Distance(numberedTiles[i].position, correctPos) > tolerance)
+            if (Vector3.Distance(numberedTiles[i].position, GetCorrectPosition(i + 1)) > 0.01f)
             {
                 return false;
             }
         }
-
-        return Vector3.Distance(emptyTile.position, GetEmptyCorrectPosition()) <= tolerance;
+        return Vector3.Distance(emptyTile.position, GetEmptyCorrectPosition()) <= 0.01f;
     }
 
     Vector3 GetCorrectPosition(int tileNumber)
     {
         int row = (tileNumber - 1) / 3;
         int col = (tileNumber - 1) % 3;
-        float x = -1 + col * tileSize;
-        float y = 1 - row * tileSize;
-        return new Vector3(x, y, 0);
+        return new Vector3(-1 + col * tileSize, 1 - row * tileSize, 0);
     }
 
     Vector3 GetEmptyCorrectPosition()
@@ -86,8 +123,7 @@ public class GameManager : MonoBehaviour
     void ShowWinMessage()
     {
         winText.SetActive(true);
-        tryAgainButton.SetActive(true); // Show only on win
-        Debug.Log("You won the game!");
+        tryAgainButton.SetActive(true);
         Time.timeScale = 0;
         gameWon = true;
     }
@@ -98,23 +134,20 @@ public class GameManager : MonoBehaviour
         {
             numberedTiles[i].position = GetCorrectPosition(i + 1);
         }
-
         emptyTile.position = GetEmptyCorrectPosition();
-        Debug.Log("Instant win applied. Empty tile at: " + emptyTile.position);
-
         ShowWinMessage();
     }
 
     public void RestartGame()
     {
-        Time.timeScale = 1; // Resume game speed
+        Time.timeScale = 1;
         SceneManager.LoadScene(SceneManager.GetActiveScene().name);
     }
 
     public void ExitToMainMenu()
     {
-        Time.timeScale = 1; // Resume game speed
-        SceneManager.LoadScene("Main_Menu"); // Change to your actual Main Menu scene name
+        Time.timeScale = 1;
+        SceneManager.LoadScene("Main_Menu");
     }
 
     bool IsInputDetected(out Vector3 position)
@@ -135,19 +168,26 @@ public class GameManager : MonoBehaviour
 
     void HandleTileMove(Vector3 inputPosition)
     {
+        if (isShuffling) return;
+
         Ray ray = Camera.main.ScreenPointToRay(inputPosition);
         if (Physics.Raycast(ray, out RaycastHit hit))
         {
             Transform selectedTile = hit.transform;
             if (numberedTiles.Contains(selectedTile))
             {
-                Vector3 tilePosition = selectedTile.position;
-                if (Vector3.Distance(tilePosition, emptyTile.position) == tileSize)
+                if (Vector3.Distance(selectedTile.position, emptyTile.position) == tileSize)
                 {
-                    selectedTile.position = emptyTile.position;
-                    emptyTile.position = tilePosition;
+                    SwapTiles(selectedTile, emptyTile);
                 }
             }
         }
+    }
+
+    void SwapTiles(Transform tile, Transform empty)
+    {
+        Vector3 temp = tile.position;
+        tile.position = empty.position;
+        empty.position = temp;
     }
 }

@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using System.Collections;
 using System.Collections.Generic;
 
 public class PuzzleManager : MonoBehaviour
@@ -13,67 +14,93 @@ public class PuzzleManager : MonoBehaviour
     [Header("UI Elements")]
     public GameObject winText;
     public GameObject tryAgainButton;
-    public GameObject mainMenuButton;
+    public GameObject exitButton;
 
     [Header("Grid Settings")]
     public float tileSize = 1.0f;
-
     private bool gameWon = false;
+    private bool isShuffling = true;
 
     void Start()
     {
-        ShuffleTiles();
         winText.SetActive(false);
-        tryAgainButton.SetActive(false);  
+        tryAgainButton.SetActive(false);
+        exitButton.SetActive(true);
+        StartCoroutine(ShuffleTilesAnimated(10f)); // 10 seconds shuffle
     }
 
     void Update()
     {
-        if (!gameWon && CheckWinCondition())
+        if (!gameWon && !isShuffling && CheckWinCondition())
         {
             ShowWinMessage();
         }
+
+        if (!gameWon && !isShuffling && IsInputDetected(out Vector3 touchPosition))
+        {
+            Vector3 worldPosition = Camera.main.ScreenToWorldPoint(new Vector3(touchPosition.x, touchPosition.y, Camera.main.nearClipPlane));
+            HandleTileMove(worldPosition);
+        }
     }
 
-    void ShuffleTiles()
+    IEnumerator ShuffleTilesAnimated(float shuffleDuration)
     {
-        for (int i = 0; i < numberedTiles.Count; i++)
+        isShuffling = true;
+
+        int moveCount = Random.Range(100, 150); // More moves for 4x4 medukseeee
+        float delay = shuffleDuration / moveCount;
+
+        Transform lastMovedTile = null;
+
+        for (int i = 0; i < moveCount; i++)
         {
-            int randomIndex = Random.Range(0, numberedTiles.Count);
-            Vector3 temp = numberedTiles[i].position;
-            numberedTiles[i].position = numberedTiles[randomIndex].position;
-            numberedTiles[randomIndex].position = temp;
+            List<Transform> adjacentTiles = GetMovableTiles();
+
+            if (adjacentTiles.Count > 1 && lastMovedTile != null)
+            {
+                adjacentTiles.Remove(lastMovedTile);
+            }
+
+            Transform randomTile = adjacentTiles[Random.Range(0, adjacentTiles.Count)];
+            SwapTiles(randomTile, emptyTile);
+            lastMovedTile = randomTile;
+
+            yield return new WaitForSeconds(delay);
         }
+
+        isShuffling = false;
+    }
+
+    List<Transform> GetMovableTiles()
+    {
+        List<Transform> movableTiles = new List<Transform>();
+        foreach (Transform tile in numberedTiles)
+        {
+            if (Vector3.Distance(tile.position, emptyTile.position) == tileSize)
+            {
+                movableTiles.Add(tile);
+            }
+        }
+        return movableTiles;
     }
 
     bool CheckWinCondition()
     {
-        float tolerance = 0.01f;
-
         for (int i = 0; i < numberedTiles.Count; i++)
         {
-            Vector3 correctPos = GetCorrectPosition(i + 1);
-            if (Vector3.Distance(numberedTiles[i].position, correctPos) > tolerance)
+            if (Vector3.Distance(numberedTiles[i].position, GetCorrectPosition(i + 1)) > 0.01f)
             {
                 return false;
             }
         }
-
-        if (Vector3.Distance(emptyTile.position, GetEmptyCorrectPosition()) > tolerance)
-        {
-            return false;
-        }
-
-        return true;
+        return Vector3.Distance(emptyTile.position, GetEmptyCorrectPosition()) <= 0.01f;
     }
 
     Vector3 GetCorrectPosition(int tileNumber)
     {
         int row = (tileNumber - 1) / 4;
         int col = (tileNumber - 1) % 4;
-        float x = -1.5f + col * tileSize;
-        float y = 1.5f - row * tileSize;
-        return new Vector3(x, y, 0);
+        return new Vector3(-1.5f + col * tileSize, 1.5f - row * tileSize, 0);
     }
 
     Vector3 GetEmptyCorrectPosition()
@@ -84,19 +111,9 @@ public class PuzzleManager : MonoBehaviour
     void ShowWinMessage()
     {
         winText.SetActive(true);
-        tryAgainButton.SetActive(true); 
-        Debug.Log("You won the game!");
+        tryAgainButton.SetActive(true);
         Time.timeScale = 0;
         gameWon = true;
-    }
-
-    public void TryAgain()
-    {
-        Time.timeScale = 1;
-        ShuffleTiles();
-        winText.SetActive(false);
-        tryAgainButton.SetActive(false); 
-        gameWon = false;
     }
 
     public void InstantWin()
@@ -105,16 +122,60 @@ public class PuzzleManager : MonoBehaviour
         {
             numberedTiles[i].position = GetCorrectPosition(i + 1);
         }
-
         emptyTile.position = GetEmptyCorrectPosition();
-
-        Debug.Log("Instant win applied. Empty tile at: " + emptyTile.position);
-
         ShowWinMessage();
     }
 
-    public void GoToMainMenu()
+    public void RestartGame()
     {
+        Time.timeScale = 1;
+        SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+    }
+
+    public void ExitToMainMenu()
+    {
+        Time.timeScale = 1;
         SceneManager.LoadScene("Main_Menu");
+    }
+
+    bool IsInputDetected(out Vector3 position)
+    {
+        position = Vector3.zero;
+        if (Input.GetMouseButtonDown(0))
+        {
+            position = Input.mousePosition;
+            return true;
+        }
+        else if (Input.touchCount > 0 && Input.GetTouch(0).phase == TouchPhase.Began)
+        {
+            position = Input.GetTouch(0).position;
+            return true;
+        }
+        return false;
+    }
+
+    void HandleTileMove(Vector3 inputPosition)
+    {
+        if (isShuffling) return;
+
+        Ray ray = Camera.main.ScreenPointToRay(inputPosition);
+        if (Physics.Raycast(ray, out RaycastHit hit))
+        {
+            Transform selectedTile = hit.transform;
+            if (numberedTiles.Contains(selectedTile))
+            {
+                if (Vector3.Distance(selectedTile.position, emptyTile.position) == tileSize)
+                {
+                    SwapTiles(selectedTile, emptyTile);
+                }
+            }
+        }
+    }
+
+    void SwapTiles(Transform tile, Transform empty)
+    {
+        Vector3 temp = tile.position;
+        tile.position = empty.position;
+        empty.position = temp;
     }
 }
